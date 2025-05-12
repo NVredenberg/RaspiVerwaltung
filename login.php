@@ -18,8 +18,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     // Benutzer in der Datenbank suchen
-    $sql = "SELECT * FROM users WHERE username='$username'";
-    $result = $conn->query($sql);
+    $sql = $conn->prepare("SELECT * FROM users WHERE username=?");
+    $sql->bind_param("s", $username);
+    $sql->execute();
+    $result = $sql->get_result();
 
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
@@ -45,6 +47,7 @@ $conn->close();
     <title>Login</title>
 </head>
 <body>
+<?php include('includes/header.php'); ?>
     <h2>Login</h2>
     <form method="post" action="login.php">
         <label for="username">Benutzername:</label>

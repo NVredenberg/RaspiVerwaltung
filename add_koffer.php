@@ -1,8 +1,10 @@
 <?php
+session_start();
 $servername = "localhost";
 $username = "test";
 $password = "test1234";
 $dbname = "raspi";
+
 
 // Verbindung herstellen
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -17,12 +19,13 @@ $Besitzer_Oberstufe = $_POST['Besitzer_Oberstufe'];
 $Besitzer_Mittelstufe = $_POST['Besitzer_Mittelstufe'];
 
 // SQL-Abfrage zum Einfügen eines neuen Koffers
-$sql = "INSERT INTO koffer_tabelle (Besitzer_Oberstufe, Besitzer_Mittelstufe) VALUES ('$Besitzer_Oberstufe', '$Besitzer_Mittelstufe')";
+$sql = $conn->prepare("INSERT INTO koffer_tabelle (Besitzer_Oberstufe, Besitzer_Mittelstufe) VALUES (?, ?)");
+$sql->bind_param("ss", $Besitzer_Oberstufe, $Besitzer_Mittelstufe);
 
-if ($conn->query($sql) === TRUE) {
+if ($sql->execute()) {
     echo "Neuer Koffer erfolgreich hinzugefügt";
 } else {
-    echo "Fehler: " . $sql . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();

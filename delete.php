@@ -16,12 +16,13 @@ if ($conn->connect_error) {
 $id = $_POST['id'];
 
 // SQL-Abfrage zum Löschen des Bauteils
-$sql = "DELETE FROM bauteil_tabelle WHERE ID = $id";
+$sql = $conn->prepare("DELETE FROM bauteil_tabelle WHERE ID = ?");
+$sql->bind_param("i", $id);
 
-if ($conn->query($sql) === TRUE) {
+if ($sql->execute()) {
     echo "Bauteil erfolgreich gelöscht";
 } else {
-    echo "Fehler: " . $sql . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();

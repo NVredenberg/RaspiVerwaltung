@@ -20,12 +20,13 @@ $Lagerort = $_POST['Lagerort'];
 $Beschreibung = $_POST['Beschreibung'];
 
 // SQL-Abfrage zum Einfügen eines neuen Bauteils
-$sql = "INSERT INTO bauteil_tabelle (Bauteilname, SOLL_Menge, IST_Menge, Lagerort, Beschreibung) VALUES ('$Bauteilname', $SOLL_Menge, $IST_Menge, '$Lagerort', '$Beschreibung')";
+$sql = $conn->prepare("INSERT INTO bauteil_tabelle (Bauteilname, SOLL_Menge, IST_Menge, Lagerort, Beschreibung) VALUES (?, ?, ?, ?, ?)");
+$sql->bind_param("siiss", $Bauteilname, $SOLL_Menge, $IST_Menge, $Lagerort, $Beschreibung);
 
-if ($conn->query($sql) === TRUE) {
+if ($sql->execute()) {
     echo "Neues Bauteil erfolgreich hinzugefügt";
 } else {
-    echo "Fehler: " . $sql . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();
