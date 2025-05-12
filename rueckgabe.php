@@ -17,26 +17,30 @@ $Ausleihe_ID = $_POST['Ausleihe_ID'];
 $Rueckgabedatum = date('Y-m-d');
 
 // SQL-Abfrage zum Aktualisieren des Rückgabedatums
-$sql_update_rueckgabe = "UPDATE ausleihe_tabelle SET Rueckgabedatum='$Rueckgabedatum' WHERE Ausleihe_ID=$Ausleihe_ID";
-if ($conn->query($sql_update_rueckgabe) === TRUE) {
+$sql_update_rueckgabe = $conn->prepare("UPDATE ausleihe_tabelle SET Rueckgabedatum=? WHERE Ausleihe_ID=?");
+$sql_update_rueckgabe->bind_param("si", $Rueckgabedatum, $Ausleihe_ID);
+
+if ($sql_update_rueckgabe->execute()) {
     // SQL-Abfrage zum Abrufen der Bauteil_ID
-    $sql_select = "SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID=$Ausleihe_ID";
-    $result = $conn->query($sql_select);
+    $sql_select = $conn->prepare("SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID=?");
+    $sql_select->bind_param("i", $Ausleihe_ID);
+    $sql_select->execute();
+    $result = $sql_select->get_result();
+    
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
         $Bauteil_ID = $row['Bauteil_ID'];
         // SQL-Abfrage zum Erhöhen der IST-Menge des Bauteils
-        $sql_update_ist_menge = "UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = $Bauteil_ID";
-        if ($conn->query($sql_update_ist_menge) === TRUE) {
-            //echo "Bauteil erfolgreich zurückgegeben und IST-Menge aktualisiert";
-        } else {
+        $sql_update_ist_menge = $conn->prepare("UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?");
+        $sql_update_ist_menge->bind_param("i", $Bauteil_ID);
+        if (!$sql_update_ist_menge->execute()) {
             echo "Fehler beim Aktualisieren der IST-Menge: " . $conn->error;
         }
     } else {
         echo "Fehler beim Abrufen der Bauteil_ID: " . $conn->error;
     }
 } else {
-    echo "Fehler: " . $sql_update_rueckgabe . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();

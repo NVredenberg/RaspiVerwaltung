@@ -1,4 +1,5 @@
 <?php
+session_start();
 $servername = "localhost";
 $username = "test";
 $password = "test1234";
@@ -20,16 +21,18 @@ $Nutzer = 'Oberstufe';  // Standardwert für Nutzer
 
 foreach ($Koffer_IDs as $Koffer_ID) {
     // SQL-Abfrage zum Einfügen eines neuen Ausleihvorgangs
-    $sql_insert = "INSERT INTO ausleihe_tabelle (Koffer_ID, Bauteil_ID, Nutzer, Ausleihdatum) VALUES ($Koffer_ID, $Bauteil_ID, '$Nutzer', '$Ausleihdatum')";
+    $sql_insert = $conn->prepare("INSERT INTO ausleihe_tabelle (Koffer_ID, Bauteil_ID, Nutzer, Ausleihdatum) VALUES (?, ?, ?, ?)");
+    $sql_insert->bind_param("iiss", $Koffer_ID, $Bauteil_ID, $Nutzer, $Ausleihdatum);
 
-    if ($conn->query($sql_insert) === TRUE) {
+    if ($sql_insert->execute()) {
         // SQL-Abfrage zum Reduzieren der IST-Menge des Bauteils
-        $sql_update = "UPDATE bauteil_tabelle SET IST_Menge = IST_Menge - 1 WHERE ID = $Bauteil_ID";
-        if ($conn->query($sql_update) !== TRUE) {
+        $sql_update = $conn->prepare("UPDATE bauteil_tabelle SET IST_Menge = IST_Menge - 1 WHERE ID = ?");
+        $sql_update->bind_param("i", $Bauteil_ID);
+        if (!$sql_update->execute()) {
             echo "Fehler beim Aktualisieren der IST-Menge: " . $conn->error;
         }
     } else {
-        echo "Fehler: " . $sql_insert . "<br>" . $conn->error;
+        echo "Fehler: " . $conn->error;
     }
 }
 

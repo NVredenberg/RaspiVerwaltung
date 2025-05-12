@@ -16,12 +16,13 @@ if ($conn->connect_error) {
 $id = $_POST['id'];
 
 // SQL-Abfrage zum Löschen des Koffers
-$sql = "DELETE FROM koffer_tabelle WHERE Koffer_ID = $id";
+$sql = $conn->prepare("DELETE FROM koffer_tabelle WHERE Koffer_ID = ?");
+$sql->bind_param("i", $id);
 
-if ($conn->query($sql) === TRUE) {
+if ($sql->execute()) {
     echo "Koffer erfolgreich gelöscht";
 } else {
-    echo "Fehler: " . $sql . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();

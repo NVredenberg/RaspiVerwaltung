@@ -16,8 +16,10 @@ if ($conn->connect_error) {
 $id = $_GET['id'];
 
 // SQL-Abfrage zum Abrufen der Bauteildaten
-$sql = "SELECT * FROM bauteil_tabelle WHERE ID = $id";
-$result = $conn->query($sql);
+$sql = $conn->prepare("SELECT * FROM bauteil_tabelle WHERE ID = ?");
+$sql->bind_param("i", $id);
+$sql->execute();
+$result = $sql->get_result();
 
 if ($result->num_rows > 0) {
     echo json_encode($result->fetch_assoc());

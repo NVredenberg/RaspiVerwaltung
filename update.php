@@ -1,8 +1,10 @@
 <?php
+session_start();
 $servername = "localhost";
 $username = "test";
 $password = "test1234";
 $dbname = "raspi";
+
 
 // Verbindung herstellen
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -21,12 +23,13 @@ $Lagerort = $_POST['Lagerort'];
 $Beschreibung = $_POST['Beschreibung'];
 
 // SQL-Abfrage zum Aktualisieren des Bauteils
-$sql = "UPDATE bauteil_tabelle SET Bauteilname='$Bauteilname', SOLL_Menge=$SOLL_Menge, IST_Menge=$IST_Menge, Lagerort='$Lagerort', Beschreibung='$Beschreibung' WHERE ID=$id";
+$sql = $conn->prepare("UPDATE bauteil_tabelle SET Bauteilname=?, SOLL_Menge=?, IST_Menge=?, Lagerort=?, Beschreibung=? WHERE ID=?");
+$sql->bind_param("siissi", $Bauteilname, $SOLL_Menge, $IST_Menge, $Lagerort, $Beschreibung, $id);
 
-if ($conn->query($sql) === TRUE) {
+if ($sql->execute()) {
     echo "Bauteil erfolgreich aktualisiert";
 } else {
-    echo "Fehler: " . $sql . "<br>" . $conn->error;
+    echo "Fehler: " . $conn->error;
 }
 
 $conn->close();
