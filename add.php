@@ -1,33 +1,22 @@
 <?php
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+try {
+    $db = Database::getInstance();
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // Daten aus dem Formular abrufen
+    $data = [
+        'Bauteilname' => $_POST['Bauteilname'],
+        'SOLL_Menge' => $_POST['SOLL_Menge'],
+        'IST_Menge' => $_POST['IST_Menge'],
+        'Lagerort' => $_POST['Lagerort'],
+        'Beschreibung' => $_POST['Beschreibung']
+    ];
+
+    // Neues Bauteil einfügen
+    $id = $db->insert('bauteil_tabelle', $data);
+    echo json_encode(['success' => true, 'id' => $id]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-
-// Daten aus dem Formular abrufen
-$Bauteilname = $_POST['Bauteilname'];
-$SOLL_Menge = $_POST['SOLL_Menge'];
-$IST_Menge = $_POST['IST_Menge'];
-$Lagerort = $_POST['Lagerort'];
-$Beschreibung = $_POST['Beschreibung'];
-
-// SQL-Abfrage zum Einfügen eines neuen Bauteils
-$sql = $conn->prepare("INSERT INTO bauteil_tabelle (Bauteilname, SOLL_Menge, IST_Menge, Lagerort, Beschreibung) VALUES (?, ?, ?, ?, ?)");
-$sql->bind_param("siiss", $Bauteilname, $SOLL_Menge, $IST_Menge, $Lagerort, $Beschreibung);
-
-if ($sql->execute()) {
-    echo "Neues Bauteil erfolgreich hinzugefügt";
-} else {
-    echo "Fehler: " . $conn->error;
-}
-
-$conn->close();
-?>

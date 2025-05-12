@@ -1,36 +1,22 @@
 <?php
-session_start();
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
+try {
+    $db = Database::getInstance();
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+    // Daten aus dem Formular abrufen
+    $data = [
+        'Bauteilname' => $_POST['Bauteilname'],
+        'SOLL_Menge' => $_POST['SOLL_Menge'],
+        'IST_Menge' => $_POST['IST_Menge'],
+        'Lagerort' => $_POST['Lagerort'],
+        'Beschreibung' => $_POST['Beschreibung']
+    ];
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // Bauteil aktualisieren
+    $affected = $db->update('bauteil_tabelle', $data, 'ID = ?', [$_POST['ID']]);
+    echo json_encode(['success' => true, 'affected' => $affected]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-
-// Daten aus dem Formular abrufen
-$id = $_POST['ID'];
-$Bauteilname = $_POST['Bauteilname'];
-$SOLL_Menge = $_POST['SOLL_Menge'];
-$IST_Menge = $_POST['IST_Menge'];
-$Lagerort = $_POST['Lagerort'];
-$Beschreibung = $_POST['Beschreibung'];
-
-// SQL-Abfrage zum Aktualisieren des Bauteils
-$sql = $conn->prepare("UPDATE bauteil_tabelle SET Bauteilname=?, SOLL_Menge=?, IST_Menge=?, Lagerort=?, Beschreibung=? WHERE ID=?");
-$sql->bind_param("siissi", $Bauteilname, $SOLL_Menge, $IST_Menge, $Lagerort, $Beschreibung, $id);
-
-if ($sql->execute()) {
-    echo "Bauteil erfolgreich aktualisiert";
-} else {
-    echo "Fehler: " . $conn->error;
-}
-
-$conn->close();
-?>

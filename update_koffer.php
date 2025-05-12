@@ -1,34 +1,19 @@
 <?php
-session_start();
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
+try {
+    $db = Database::getInstance();
 
+    // Daten aus dem Formular abrufen
+    $data = [
+        'Besitzer_Oberstufe' => $_POST['Besitzer_Oberstufe'],
+        'Besitzer_Mittelstufe' => $_POST['Besitzer_Mittelstufe']
+    ];
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // Koffer aktualisieren
+    $affected = $db->update('koffer_tabelle', $data, 'Koffer_ID = ?', [$_POST['Koffer_ID']]);
+    echo json_encode(['success' => true, 'affected' => $affected]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-
-// Daten aus dem Formular abrufen
-$id = $_POST['Koffer_ID'];
-$Besitzer_Oberstufe = $_POST['Besitzer_Oberstufe'];
-$Besitzer_Mittelstufe = $_POST['Besitzer_Mittelstufe'];
-
-// SQL-Abfrage zum Aktualisieren des Koffers
-$sql = $conn->prepare("UPDATE koffer_tabelle SET Besitzer_Oberstufe=?, Besitzer_Mittelstufe=? WHERE Koffer_ID=?");
-$sql->bind_param("ssi", $Besitzer_Oberstufe, $Besitzer_Mittelstufe, $id);
-
-if ($sql->execute()) {
-    echo "Koffer erfolgreich aktualisiert";
-} else {
-    echo "Fehler: " . $conn->error;
-}
-
-$conn->close();
-?>

@@ -1,29 +1,16 @@
 <?php
-$servername = "localhost";
-$username = "raspiVer";
-$password = "Verwaltung2025";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+try {
+    $db = Database::getInstance();
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // ID des zu löschenden Bauteils abrufen
+    $id = $_POST['id'];
+
+    // Bauteil löschen
+    $affected = $db->delete('bauteil_tabelle', 'ID = ?', [$id]);
+    echo json_encode(['success' => true, 'affected' => $affected]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-
-// ID des zu löschenden Bauteils abrufen
-$id = $_POST['id'];
-
-// SQL-Abfrage zum Löschen des Bauteils
-$sql = $conn->prepare("DELETE FROM bauteil_tabelle WHERE ID = ?");
-$sql->bind_param("i", $id);
-
-if ($sql->execute()) {
-    echo "Bauteil erfolgreich gelöscht";
-} else {
-    echo "Fehler: " . $conn->error;
-}
-
-$conn->close();
-?>
