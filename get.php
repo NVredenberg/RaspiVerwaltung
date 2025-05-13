@@ -1,31 +1,22 @@
 <?php
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+try {
+    $db = Database::getInstance();
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // ID des Bauteils abrufen
+    $id = $_GET['id'];
+
+    // Bauteil abrufen
+    $bauteil = $db->fetch("SELECT * FROM bauteil_tabelle WHERE ID = ?", [$id]);
+    
+    if ($bauteil) {
+        echo json_encode($bauteil);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Bauteil nicht gefunden']);
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage()]);
 }
-
-// ID des Bauteils abrufen
-$id = $_GET['id'];
-
-// SQL-Abfrage zum Abrufen der Bauteildaten
-$sql = $conn->prepare("SELECT * FROM bauteil_tabelle WHERE ID = ?");
-$sql->bind_param("i", $id);
-$sql->execute();
-$result = $sql->get_result();
-
-if ($result->num_rows > 0) {
-    echo json_encode($result->fetch_assoc());
-} else {
-    echo json_encode([]);
-}
-
-$conn->close();
-?>

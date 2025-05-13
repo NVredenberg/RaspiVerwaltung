@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/includes/Database.php';
 
 session_start();
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -7,38 +7,22 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-// Datenbankverbindung
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+try {
+    $db = Database::getInstance();
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+    // SQL-Abfrage zum Abrufen aller Ausleihvorgänge
+    $sql = "SELECT a.Ausleihe_ID, a.Koffer_ID, k.Besitzer_Oberstufe, k.Besitzer_Mittelstufe, a.Bauteil_ID, b.Bauteilname, a.Ausleihdatum, a.Rueckgabedatum
+            FROM ausleihe_tabelle a
+            JOIN koffer_tabelle k ON a.Koffer_ID = k.Koffer_ID
+            JOIN bauteil_tabelle b ON a.Bauteil_ID = b.ID";
+    $ausleihen = $db->fetchAll($sql);
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // SQL-Abfrage zum Abrufen der Koffer_IDs und Bauteilbezeichnungen für die Dropdown-Menüs
+    $koffer = $db->fetchAll("SELECT DISTINCT Koffer_ID FROM koffer_tabelle");
+    $bauteile = $db->fetchAll("SELECT DISTINCT Bauteilname FROM bauteil_tabelle");
+} catch (Exception $e) {
+    die("Fehler bei der Datenbankabfrage: " . $e->getMessage());
 }
-
-// SQL-Abfrage zum Abrufen aller Ausleihvorgänge
-$sql = "SELECT a.Ausleihe_ID, a.Koffer_ID, k.Besitzer_Oberstufe, k.Besitzer_Mittelstufe, a.Bauteil_ID, b.Bauteilname, a.Ausleihdatum, a.Rueckgabedatum
-        FROM ausleihe_tabelle a
-        JOIN koffer_tabelle k ON a.Koffer_ID = k.Koffer_ID
-        JOIN bauteil_tabelle b ON a.Bauteil_ID = b.ID";
-$result = $conn->query($sql);
-
-// Fehlerbehandlung hinzufügen
-if (!$result) {
-    die("Fehler bei der SQL-Abfrage: " . $conn->error);
-}
-
-// SQL-Abfrage zum Abrufen der Koffer_IDs und Bauteilbezeichnungen für die Dropdown-Menüs
-$sql_koffer = "SELECT DISTINCT Koffer_ID FROM koffer_tabelle";
-$result_koffer = $conn->query($sql_koffer);
-
-$sql_bauteile = "SELECT DISTINCT Bauteilname FROM bauteil_tabelle";
-$result_bauteile = $conn->query($sql_bauteile);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -54,25 +38,21 @@ $result_bauteile = $conn->query($sql_bauteile);
             <div class="col">
                 <select class="form-control" id="filterKoffer">
                     <option value="">Filter nach Koffer_ID</option>
-                    <?php
-                    if ($result_koffer->num_rows > 0) {
-                        while($row = $result_koffer->fetch_assoc()) {
-                            echo "<option value='" . $row["Koffer_ID"] . "'>" . $row["Koffer_ID"] . "</option>";
-                        }
-                    }
-                    ?>
+                    <?php foreach ($koffer as $k): ?>
+                        <option value="<?php echo htmlspecialchars($k['Koffer_ID']); ?>">
+                            <?php echo htmlspecialchars($k['Koffer_ID']); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div class="col">
                 <select class="form-control" id="filterBauteil">
                     <option value="">Filter nach Bauteilname</option>
-                    <?php
-                    if ($result_bauteile->num_rows > 0) {
-                        while($row = $result_bauteile->fetch_assoc()) {
-                            echo "<option value='" . $row["Bauteilname"] . "'>" . $row["Bauteilname"] . "</option>";
-                        }
-                    }
-                    ?>
+                    <?php foreach ($bauteile as $b): ?>
+                        <option value="<?php echo htmlspecialchars($b['Bauteilname']); ?>">
+                            <?php echo htmlspecialchars($b['Bauteilname']); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
         </div>
@@ -91,32 +71,29 @@ $result_bauteile = $conn->query($sql_bauteile);
                 </tr>
             </thead>
             <tbody id="tableBody">
-                <?php
-                // Daten in Tabelle einfügen
-                if ($result->num_rows > 0) {
-                    while($row = $result->fetch_assoc()) {
-                        echo "<tr>";
-                        echo "<th scope='row'>" . $row["Ausleihe_ID"] . "</th>";
-                        echo "<td>" . $row["Koffer_ID"] . "</td>";
-                        echo "<td>" . $row["Besitzer_Oberstufe"] . "</td>";
-                        echo "<td>" . $row["Besitzer_Mittelstufe"] . "</td>";
-                        echo "<td>" . $row["Bauteil_ID"] . "</td>";
-                        echo "<td>" . $row["Bauteilname"] . "</td>";
-                        echo "<td>" . $row["Ausleihdatum"] . "</td>";
-                        echo "<td>" . $row["Rueckgabedatum"] . "</td>";
-                        echo "<td>";
-                        if (is_null($row["Rueckgabedatum"])) {
-                            echo "<button class='btn btn-primary btn-sm rueckgabe-btn' data-id='" . $row["Ausleihe_ID"] . "'>Zurückgeben</button>";
-                        } else {
-                            echo "Bereits zurückgegeben";
-                        }
-                        echo "</td>";
-                        echo "</tr>";
-                    }
-                } else {
-                    echo "<tr><td colspan='9'>Keine Daten gefunden</td></tr>";
-                }
-                ?>
+                <?php if (!empty($ausleihen)): ?>
+                    <?php foreach ($ausleihen as $row): ?>
+                        <tr>
+                            <th scope='row'><?php echo htmlspecialchars($row['Ausleihe_ID']); ?></th>
+                            <td><?php echo htmlspecialchars($row['Koffer_ID']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Besitzer_Oberstufe']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Besitzer_Mittelstufe']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Bauteil_ID']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Bauteilname']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Ausleihdatum']); ?></td>
+                            <td><?php echo htmlspecialchars($row['Rueckgabedatum']); ?></td>
+                            <td>
+                                <?php if (is_null($row['Rueckgabedatum'])): ?>
+                                    <button class='btn btn-primary btn-sm rueckgabe-btn' data-id='<?php echo htmlspecialchars($row['Ausleihe_ID']); ?>'>Zurückgeben</button>
+                                <?php else: ?>
+                                    Bereits zurückgegeben
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr><td colspan='9'>Keine Daten gefunden</td></tr>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
@@ -132,8 +109,6 @@ $result_bauteile = $conn->query($sql_bauteile);
                 url: 'rueckgabe.php',
                 data: { Ausleihe_ID: ausleiheId },
                 success: function(response) {
-                    //alert(response);
-                    // Filterwerte speichern
                     localStorage.setItem('filterKoffer', filterKoffer);
                     localStorage.setItem('filterBauteil', filterBauteil);
                     location.reload();
@@ -170,7 +145,3 @@ $result_bauteile = $conn->query($sql_bauteile);
     </script>
 </body>
 </html>
-<?php
-// Verbindung schließen
-$conn->close();
-?>

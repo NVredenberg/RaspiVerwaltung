@@ -1,32 +1,19 @@
 <?php
-session_start();
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
+try {
+    $db = Database::getInstance();
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+    // Daten aus dem Formular abrufen
+    $data = [
+        'Besitzer_Oberstufe' => $_POST['Besitzer_Oberstufe'],
+        'Besitzer_Mittelstufe' => $_POST['Besitzer_Mittelstufe']
+    ];
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // Neuen Koffer einfügen
+    $id = $db->insert('koffer_tabelle', $data);
+    echo json_encode(['success' => true, 'id' => $id]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-
-// Daten aus dem Formular abrufen
-$Besitzer_Oberstufe = $_POST['Besitzer_Oberstufe'];
-$Besitzer_Mittelstufe = $_POST['Besitzer_Mittelstufe'];
-
-// SQL-Abfrage zum Einfügen eines neuen Koffers
-$sql = $conn->prepare("INSERT INTO koffer_tabelle (Besitzer_Oberstufe, Besitzer_Mittelstufe) VALUES (?, ?)");
-$sql->bind_param("ss", $Besitzer_Oberstufe, $Besitzer_Mittelstufe);
-
-if ($sql->execute()) {
-    echo "Neuer Koffer erfolgreich hinzugefügt";
-} else {
-    echo "Fehler: " . $conn->error;
-}
-
-$conn->close();
-?>

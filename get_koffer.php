@@ -1,32 +1,22 @@
 <?php
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
+require_once __DIR__ . '/includes/Database.php';
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
+try {
+    $db = Database::getInstance();
 
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+    // ID des Koffers abrufen
+    $id = $_GET['id'];
+
+    // Koffer abrufen
+    $koffer = $db->fetch("SELECT * FROM koffer_tabelle WHERE Koffer_ID = ?", [$id]);
+    
+    if ($koffer) {
+        echo json_encode($koffer);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Koffer nicht gefunden']);
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage()]);
 }
-
-// ID des Koffers abrufen
-$id = $_GET['id'];
-
-// SQL-Abfrage zum Abrufen der Kofferdaten
-$sql = $conn->prepare("SELECT * FROM koffer_tabelle WHERE Koffer_ID = ?");
-$sql->bind_param("s", $id);
-
-$result = $conn->query($sql);
-
-
-if ($result->num_rows > 0) {
-    echo json_encode($result->fetch_assoc());
-} else {
-    echo json_encode([]);
-}
-
-$conn->close();
-?>

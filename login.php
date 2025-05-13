@@ -1,43 +1,42 @@
 <?php
 session_start();
-$servername = "localhost";
-$username = "test";
-$password = "test1234";
-$dbname = "raspi";
 
-// Verbindung herstellen
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Verbindung überprüfen
-if ($conn->connect_error) {
-    die("Verbindung fehlgeschlagen: " . $conn->connect_error);
+// Wenn bereits eingeloggt, zur Hauptseite weiterleiten
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
+    header("Location: index.php");
+    exit;
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+require_once __DIR__ . '/includes/Database.php';
 
-    // Benutzer in der Datenbank suchen
-    $sql = $conn->prepare("SELECT * FROM users WHERE username=?");
-    $sql->bind_param("s", $username);
-    $sql->execute();
-    $result = $sql->get_result();
+$error = '';
 
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        // Passwort überprüfen
-        if (password_verify($password, $row['password'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        $db = Database::getInstance();
+        
+        $username = $_POST['username'];
+        $password = $_POST['password'];
+
+        // Benutzer in der Datenbank suchen
+        $user = $db->fetch(
+            "SELECT * FROM users WHERE username = ?",
+            [$username]
+        );
+
+        if ($user && password_verify($password, $user['password'])) {
+            // Login erfolgreich
             $_SESSION['loggedin'] = true;
-            $_SESSION['username'] = $username;
+            $_SESSION['username'] = $user['username'];
             header("Location: index.php");
+            exit;
         } else {
-            echo "Falsches Passwort.";
+            $error = 'Ungültiger Benutzername oder Passwort';
         }
-    } else {
-        echo "Benutzername nicht gefunden.";
+    } catch (Exception $e) {
+        $error = "Ein Fehler ist aufgetreten: " . $e->getMessage();
     }
 }
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -45,18 +44,39 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-<?php include('includes/header.php'); ?>
-    <h2>Login</h2>
-    <form method="post" action="login.php">
-        <label for="username">Benutzername:</label>
-        <input type="text" id="username" name="username" required>
-        <br>
-        <label for="password">Passwort:</label>
-        <input type="password" id="password" name="password" required>
-        <br>
-        <button type="submit">Login</button>
-    </form>
+<body class="bg-light">
+    <div class="container">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h2 class="text-center mb-4">Login</h2>
+                        
+                        <?php if ($error): ?>
+                            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+                        <?php endif; ?>
+
+                        <form method="POST" action="">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Benutzername</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Passwort</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Einloggen</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
