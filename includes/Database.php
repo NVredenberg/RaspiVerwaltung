@@ -82,4 +82,4 @@ class Database {
         $sql = "DELETE FROM {$table} WHERE {$where}";
         return $this->query($sql, $params)->rowCount();
     }
-} 
+}
