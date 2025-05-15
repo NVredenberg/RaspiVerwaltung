@@ -42,15 +42,15 @@ try {
             <div class="card-body">
                 <form id="ausleiheForm">
                     <div class="mb-3">
-                        <label for="Bauteil_ID" class="form-label">Bauteil</label>
-                        <select class="form-select" id="Bauteil_ID" name="Bauteil_ID" required>
-                            <option value="">Bitte wählen...</option>
+                        <label for="Bauteil_ID" class="form-label">Bauteile</label>
+                        <select class="form-select" id="Bauteil_ID" name="Bauteil_ID[]" multiple required>
                             <?php foreach ($bauteile as $bauteil): ?>
                                 <option value="<?php echo htmlspecialchars($bauteil['ID']); ?>">
                                     <?php echo htmlspecialchars($bauteil['Bauteilname']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <div class="form-text">Halten Sie die Strg-Taste (Windows) oder die Cmd-Taste (Mac) gedrückt, um mehrere Bauteile auszuwählen.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Koffer</label>
@@ -87,7 +87,7 @@ try {
                 e.preventDefault();
                 $.ajax({
                     type: 'POST',
-                    url: 'add_ausleihe.php',
+                    url: 'ajax/add_ausleihe.php',
                     data: $(this).serialize(),
                     success: function(response) {
                         location.reload();
