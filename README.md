@@ -10,6 +10,8 @@ Die Anwendung ist für Docker vorbereitet und belegt standardmäßig **nicht** P
 - Pi-hole: bleibt auf den bestehenden Pi-hole-Ports erreichbar
 - Datenbank: nur im internen Docker-Netz, kein veröffentlichter Port
 
+Das Netzwerk-Deployment ist in [DEPLOYMENT.md](DEPLOYMENT.md) beschrieben.
+
 ## Start
 
 1. `.env` prüfen und sichere Passwörter setzen.
