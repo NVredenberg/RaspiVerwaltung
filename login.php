@@ -3,45 +3,115 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/security_headers.php';
 require_once __DIR__ . '/includes/view_helpers.php';
 require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/audit.php';
 
 secure_session_start();
 send_security_headers();
 
-if (is_logged_in()) {
+if (is_logged_in() && session_user_is_active()) {
     header('Location: index.php');
     exit;
 }
 
 $error = '';
+$isInitialSetup = false;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+try {
+    $db = Database::getInstance();
+    $userCount = $db->fetch('SELECT COUNT(*) AS count FROM users');
+    $isInitialSetup = (int)($userCount['count'] ?? 0) === 0;
+} catch (Exception $e) {
+    error_log($e->getMessage());
+    $error = 'Login ist gerade nicht möglich. Bitte später erneut versuchen.';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     try {
         require_valid_csrf();
 
         $username = input_string($_POST, 'username', 50);
         $password = input_string($_POST, 'password', 255);
-        $db = Database::getInstance();
 
-        $user = $db->fetch(
-            'SELECT id, username, password FROM users WHERE username = ?',
-            [$username]
-        );
+        if ($isInitialSetup) {
+            $passwordConfirm = input_string($_POST, 'password_confirm', 255);
 
-        if ($user && password_verify($password, $user['password'])) {
+            if (!preg_match('/^[A-Za-z0-9._-]{3,50}$/', $username)) {
+                throw new InvalidArgumentException('Benutzername: 3-50 Zeichen, erlaubt sind Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich.');
+            }
+
+            if (strlen($password) < 10) {
+                throw new InvalidArgumentException('Das Admin-Passwort muss mindestens 10 Zeichen lang sein.');
+            }
+
+            if ($password !== $passwordConfirm) {
+                throw new InvalidArgumentException('Die Passwörter stimmen nicht überein.');
+            }
+
+            $db->beginTransaction();
+            $userCount = $db->fetch('SELECT COUNT(*) AS count FROM users');
+            if ((int)($userCount['count'] ?? 0) !== 0) {
+                throw new InvalidArgumentException('Die Ersteinrichtung wurde bereits abgeschlossen.');
+            }
+
+            $adminId = (int)$db->insert('users', [
+                'username' => $username,
+                'password' => password_hash($password, PASSWORD_DEFAULT),
+                'role' => 'admin',
+                'status' => 'active',
+                'approved_at' => date('Y-m-d H:i:s'),
+            ]);
+            $db->commit();
+
             session_regenerate_id(true);
             $_SESSION['loggedin'] = true;
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $username;
+            $_SESSION['user_id'] = $adminId;
+            $_SESSION['role'] = 'admin';
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+            try {
+                audit_log($db, 'create_admin', 'user', $adminId, 'Admin-Konto angelegt');
+            } catch (Exception $auditException) {
+                error_log($auditException->getMessage());
+            }
 
             header('Location: index.php');
             exit;
         }
 
-        $error = 'Benutzername oder Passwort ist falsch.';
+        $user = $db->fetch(
+            'SELECT id, username, password, role, status FROM users WHERE username = ?',
+            [$username]
+        );
+
+        if ($user && password_verify($password, $user['password'])) {
+            if ($user['status'] !== 'active') {
+                $error = $user['status'] === 'pending'
+                    ? 'Dieses Konto wartet noch auf Freigabe durch einen Admin.'
+                    : 'Dieses Konto ist nicht freigegeben.';
+            } else {
+                session_regenerate_id(true);
+                $_SESSION['loggedin'] = true;
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+                header('Location: index.php');
+                exit;
+            }
+        } else {
+            $error = 'Benutzername oder Passwort ist falsch.';
+        }
     } catch (InvalidArgumentException $e) {
-        $error = 'Bitte Benutzername und Passwort eingeben.';
+        if (isset($db) && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        $error = $e->getMessage();
     } catch (Exception $e) {
+        if (isset($db) && $db->inTransaction()) {
+            $db->rollBack();
+        }
         error_log($e->getMessage());
         $error = 'Login ist gerade nicht möglich. Bitte später erneut versuchen.';
     }
@@ -66,8 +136,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <section class="content-panel p-4">
                     <div class="text-center mb-4">
                         <i class="fas fa-layer-group fa-2x text-primary mb-3"></i>
-                        <h1 class="page-title">Anmelden</h1>
-                        <p class="page-subtitle">Zugriff auf Inventar, Koffer und Ausleihen.</p>
+                        <h1 class="page-title"><?php echo $isInitialSetup ? 'Admin einrichten' : 'Anmelden'; ?></h1>
+                        <p class="page-subtitle">
+                            <?php echo $isInitialSetup ? 'Das erste Konto wird automatisch als Admin angelegt.' : 'Zugriff auf Inventar, Koffer und Ausleihen.'; ?>
+                        </p>
                     </div>
 
                     <?php if ($error): ?>
@@ -82,12 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <div class="mb-4">
                             <label for="password" class="form-label">Passwort</label>
-                            <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
+                            <input type="password" class="form-control" id="password" name="password" autocomplete="<?php echo $isInitialSetup ? 'new-password' : 'current-password'; ?>" required>
+                            <?php if ($isInitialSetup): ?>
+                                <div class="form-text">Mindestens 10 Zeichen.</div>
+                            <?php endif; ?>
                         </div>
+                        <?php if ($isInitialSetup): ?>
+                            <div class="mb-4">
+                                <label for="password_confirm" class="form-label">Passwort wiederholen</label>
+                                <input type="password" class="form-control" id="password_confirm" name="password_confirm" autocomplete="new-password" required>
+                            </div>
+                        <?php endif; ?>
                         <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-sign-in-alt me-2"></i>Einloggen
+                            <i class="fas fa-sign-in-alt me-2"></i><?php echo $isInitialSetup ? 'Admin anlegen' : 'Einloggen'; ?>
                         </button>
                     </form>
+
+                    <?php if (!$isInitialSetup): ?>
+                        <div class="text-center mt-3">
+                            <a href="register.php">Neues Konto registrieren</a>
+                        </div>
+                    <?php endif; ?>
                 </section>
             </div>
         </div>

@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/security_headers.php';
 require_once __DIR__ . '/includes/view_helpers.php';
 require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/audit.php';
 
 secure_session_start();
 send_security_headers();
@@ -14,11 +15,13 @@ $categories = inventory_categories();
 
 try {
     $db = Database::getInstance();
-    $bauteile = $db->fetchAll('
-        SELECT ID, Bauteilname, Kategorie, SOLL_Menge, IST_Menge, Lagerort, Beschreibung
-        FROM bauteil_tabelle
+    $latestInventoryAudit = latest_audit_subquery('inventory', 'bt.ID');
+    $bauteile = $db->fetchAll("
+        SELECT bt.ID, bt.Bauteilname, bt.Kategorie, bt.SOLL_Menge, bt.IST_Menge, bt.Lagerort, bt.Beschreibung,
+               {$latestInventoryAudit} AS Letzte_Aenderung
+        FROM bauteil_tabelle bt
         ORDER BY Kategorie, Bauteilname
-    ');
+    ");
 } catch (Exception $e) {
     error_log($e->getMessage());
     $error = 'Das Inventar konnte nicht geladen werden.';
@@ -124,6 +127,7 @@ foreach ($bauteile as $row) {
                             <th scope="col">Status</th>
                             <th scope="col">Lagerort</th>
                             <th scope="col">Beschreibung</th>
+                            <th scope="col">Letzte Änderung</th>
                             <th scope="col" class="text-end">Aktionen</th>
                         </tr>
                     </thead>
@@ -153,6 +157,7 @@ foreach ($bauteile as $row) {
                                     </td>
                                     <td><?php echo e($row['Lagerort']); ?></td>
                                     <td><?php echo e($row['Beschreibung']); ?></td>
+                                    <td class="small text-muted"><?php echo e($row['Letzte_Aenderung'] ?? 'Noch keine Änderung protokolliert'); ?></td>
                                     <td>
                                         <div class="action-buttons">
                                             <button class="btn btn-outline-primary btn-sm edit-btn"
@@ -173,7 +178,7 @@ foreach ($bauteile as $row) {
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     <div class="empty-state">
                                         <i class="fas fa-box-open"></i>
                                         <p class="mb-0">Noch keine Inventareinträge vorhanden.</p>

@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/security_headers.php';
 require_once __DIR__ . '/includes/view_helpers.php';
 require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/audit.php';
 
 secure_session_start();
 send_security_headers();
@@ -16,15 +17,17 @@ $categories = inventory_categories();
 
 try {
     $db = Database::getInstance();
-    $ausleihen = $db->fetchAll('
+    $latestLoanAudit = latest_audit_subquery('loan', 'a.Ausleihe_ID');
+    $ausleihen = $db->fetchAll("
         SELECT a.Ausleihe_ID, a.Koffer_ID, a.Bauteil_ID, a.Nutzer, a.Ausleihdatum, a.Rueckgabedatum,
                k.Bezeichnung, k.Kategorie AS KofferKategorie, k.Zielgruppe, k.Ansprechpartner,
-               b.Bauteilname, b.Kategorie AS BauteilKategorie
+               b.Bauteilname, b.Kategorie AS BauteilKategorie,
+               {$latestLoanAudit} AS Letzte_Aenderung
         FROM ausleihe_tabelle a
         JOIN koffer_tabelle k ON a.Koffer_ID = k.Koffer_ID
         JOIN bauteil_tabelle b ON a.Bauteil_ID = b.ID
         ORDER BY a.Rueckgabedatum IS NOT NULL, a.Ausleihdatum DESC, k.Bezeichnung, b.Bauteilname
-    ');
+    ");
     $koffer = $db->fetchAll('
         SELECT DISTINCT Koffer_ID, Bezeichnung, Kategorie, Zielgruppe
         FROM koffer_tabelle
@@ -130,6 +133,7 @@ foreach ($ausleihen as $row) {
                             <th scope="col">Ausgeliehen</th>
                             <th scope="col">Rückgabe</th>
                             <th scope="col">Status</th>
+                            <th scope="col">Letzte Änderung</th>
                             <th scope="col" class="text-end">Aktion</th>
                         </tr>
                     </thead>
@@ -166,6 +170,7 @@ foreach ($ausleihen as $row) {
                                             <span class="status-badge status-returned"><i class="fas fa-check"></i>Zurückgegeben</span>
                                         <?php endif; ?>
                                     </td>
+                                    <td class="small text-muted"><?php echo e($row['Letzte_Aenderung'] ?? 'Noch keine Änderung protokolliert'); ?></td>
                                     <td class="text-end">
                                         <?php if ($isActive): ?>
                                             <button class="btn btn-primary btn-sm btn-rueckgabe" data-id="<?php echo e($row['Ausleihe_ID']); ?>">
@@ -179,7 +184,7 @@ foreach ($ausleihen as $row) {
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     <div class="empty-state">
                                         <i class="fas fa-inbox"></i>
                                         <p class="mb-0">Keine Ausleihen gefunden.</p>

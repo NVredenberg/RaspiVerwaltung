@@ -40,6 +40,39 @@ function current_username(): string
     return (string)($_SESSION['username'] ?? 'unbekannt');
 }
 
+function current_user_id(): ?int
+{
+    secure_session_start();
+    return isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+}
+
+function current_user_role(): string
+{
+    secure_session_start();
+    return (string)($_SESSION['role'] ?? 'user');
+}
+
+function is_admin(): bool
+{
+    return is_logged_in() && current_user_role() === 'admin';
+}
+
+function require_admin(bool $json = false): void
+{
+    require_login($json);
+
+    if (is_admin()) {
+        return;
+    }
+
+    if ($json) {
+        json_response(['success' => false, 'error' => 'Nur Admins dürfen diese Aktion ausführen.'], 403);
+    }
+
+    http_response_code(403);
+    exit('Nur Admins dürfen diese Seite öffnen.');
+}
+
 function json_response(array $payload, int $statusCode = 200): never
 {
     http_response_code($statusCode);
@@ -50,7 +83,7 @@ function json_response(array $payload, int $statusCode = 200): never
 
 function require_login(bool $json = false): void
 {
-    if (is_logged_in()) {
+    if (is_logged_in() && session_user_is_active($json)) {
         return;
     }
 
@@ -60,6 +93,36 @@ function require_login(bool $json = false): void
 
     header('Location: login.php');
     exit;
+}
+
+function session_user_is_active(bool $json = false): bool
+{
+    $userId = current_user_id();
+    if ($userId === null) {
+        return false;
+    }
+
+    try {
+        require_once __DIR__ . '/Database.php';
+        $db = Database::getInstance();
+        $user = $db->fetch('SELECT username, role, status FROM users WHERE id = ?', [$userId]);
+    } catch (Exception $e) {
+        error_log($e->getMessage());
+        if ($json) {
+            json_response(['success' => false, 'error' => 'Kontostatus konnte nicht geprüft werden.'], 500);
+        }
+        return false;
+    }
+
+    if (!$user || $user['status'] !== 'active') {
+        $_SESSION = [];
+        session_destroy();
+        return false;
+    }
+
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['role'] = $user['role'];
+    return true;
 }
 
 function csrf_token(): string

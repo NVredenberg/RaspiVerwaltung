@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/security_headers.php';
 require_once __DIR__ . '/includes/view_helpers.php';
 require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/audit.php';
 
 secure_session_start();
 send_security_headers();
@@ -14,11 +15,13 @@ $categories = inventory_categories();
 
 try {
     $db = Database::getInstance();
-    $koffer = $db->fetchAll('
-        SELECT Koffer_ID, Bezeichnung, Kategorie, Zielgruppe, Ansprechpartner, Beschreibung
-        FROM koffer_tabelle
+    $latestSetAudit = latest_audit_subquery('set', 'kt.Koffer_ID');
+    $koffer = $db->fetchAll("
+        SELECT kt.Koffer_ID, kt.Bezeichnung, kt.Kategorie, kt.Zielgruppe, kt.Ansprechpartner, kt.Beschreibung,
+               {$latestSetAudit} AS Letzte_Aenderung
+        FROM koffer_tabelle kt
         ORDER BY Kategorie, Bezeichnung, Koffer_ID
-    ');
+    ");
 } catch (Exception $e) {
     error_log($e->getMessage());
     $error = 'Die Koffer und Sets konnten nicht geladen werden.';
@@ -100,6 +103,7 @@ foreach ($koffer as $row) {
                             <th scope="col">Zielgruppe / Klasse</th>
                             <th scope="col">Ansprechpartner</th>
                             <th scope="col">Beschreibung</th>
+                            <th scope="col">Letzte Änderung</th>
                             <th scope="col" class="text-end">Aktionen</th>
                         </tr>
                     </thead>
@@ -116,6 +120,7 @@ foreach ($koffer as $row) {
                                     <td><?php echo e($row['Zielgruppe'] ?? 'Allgemein'); ?></td>
                                     <td><?php echo e($row['Ansprechpartner'] ?? ''); ?></td>
                                     <td><?php echo e($row['Beschreibung'] ?? ''); ?></td>
+                                    <td class="small text-muted"><?php echo e($row['Letzte_Aenderung'] ?? 'Noch keine Änderung protokolliert'); ?></td>
                                     <td>
                                         <div class="action-buttons">
                                             <button class="btn btn-outline-primary btn-sm edit-btn"
@@ -136,7 +141,7 @@ foreach ($koffer as $row) {
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6">
+                                <td colspan="7">
                                     <div class="empty-state">
                                         <i class="fas fa-toolbox"></i>
                                         <p class="mb-0">Noch keine Sets oder Koffer vorhanden.</p>

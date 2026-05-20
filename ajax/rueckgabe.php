@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 require_login(true);
 require_valid_csrf(true);
@@ -34,6 +35,12 @@ try {
         'UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?',
         [$ausleihe['Bauteil_ID']]
     );
+    audit_log($db, 'return', 'loan', $ausleiheId, 'Ausleihe zurückgegeben', [
+        'bauteil_id' => (int)$ausleihe['Bauteil_ID'],
+    ]);
+    audit_log($db, 'stock_increase', 'inventory', (int)$ausleihe['Bauteil_ID'], 'Bestand durch Rückgabe erhöht', [
+        'loan_id' => $ausleiheId,
+    ]);
 
     $db->commit();
     json_response(['success' => true]);

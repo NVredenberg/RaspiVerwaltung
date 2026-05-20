@@ -48,6 +48,13 @@ $nonceAttribute = $scriptNonce !== '' ? ' nonce="' . htmlspecialchars($scriptNon
                             <i class="fas fa-chart-bar me-1"></i>Übersicht
                         </a>
                     </li>
+                    <?php if (is_admin()): ?>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $currentPage === 'admin.php' ? 'active' : ''; ?>" href="admin.php">
+                                <i class="fas fa-user-shield me-1"></i>Admin
+                            </a>
+                        </li>
+                    <?php endif; ?>
                 </ul>
                 <div class="d-flex align-items-center gap-2">
                     <button id="darkModeToggle" class="btn btn-outline-light btn-icon" type="button" title="Darstellung umschalten" aria-label="Darstellung umschalten">

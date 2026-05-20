@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 require_login(true);
 require_valid_csrf(true);
@@ -26,11 +27,19 @@ try {
                 throw new InvalidArgumentException('Ein gewählter Inventareintrag ist nicht mehr verfügbar.');
             }
 
-            $db->insert('ausleihe_tabelle', [
+            $loanId = (int)$db->insert('ausleihe_tabelle', [
                 'Koffer_ID' => $kofferId,
                 'Bauteil_ID' => $bauteilId,
                 'Nutzer' => $nutzer,
                 'Ausleihdatum' => $ausleihdatum,
+            ]);
+            audit_log($db, 'loan', 'loan', $loanId, 'Ausleihe angelegt', [
+                'koffer_id' => $kofferId,
+                'bauteil_id' => $bauteilId,
+            ]);
+            audit_log($db, 'stock_decrease', 'inventory', $bauteilId, 'Bestand durch Ausleihe reduziert', [
+                'loan_id' => $loanId,
+                'koffer_id' => $kofferId,
             ]);
             $processed++;
         }

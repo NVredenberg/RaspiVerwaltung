@@ -19,17 +19,15 @@ Die Anwendung ist für Docker vorbereitet und belegt standardmäßig **nicht** P
 docker compose up -d --build
 ```
 
-3. Ersten Benutzer anlegen:
-
-```bash
-docker compose exec app php util/create_user.php admin "ein-sehr-sicheres-passwort"
-```
-
-4. App öffnen:
+3. App öffnen:
 
 ```text
 http://172.16.76.162:8080
 ```
+
+Beim ersten Login gibt es noch keine Konten. Die Login-Maske legt dann automatisch das erste Admin-Konto an.
+
+Weitere Nutzer verwenden `Registrieren` auf der Login-Seite. Diese Konten bleiben gesperrt, bis ein Admin sie unter `Admin` freigibt.
 
 ## Konfiguration
 
@@ -68,11 +66,16 @@ Inventar und Sets sind nicht mehr fest auf Oberstufe/Mittelstufe ausgelegt.
 ## Sicherheitsmaßnahmen
 
 - Keine festen Datenbankpasswörter mehr im PHP-Code
+- Der erste Login erzeugt das initiale Admin-Konto
+- Neue Konten registrieren sich selbst und bleiben bis zur Admin-Freigabe gesperrt
+- Admin-Panel für manuelle Freigabe oder Sperrung von Konten
+- Rollenmodell: `admin` und `user`
 - Login-Sessions mit `HttpOnly`, `SameSite=Strict` und Session-ID-Wechsel beim Login
 - AJAX-Endpunkte verlangen Login und CSRF-Token
 - Eingaben werden serverseitig validiert
 - Datenbankfehler werden nicht mehr direkt an die Oberfläche ausgegeben
 - Sicherheitsheader inklusive CSP mit Script-Nonce sind aktiv
+- Änderungsprotokoll zeigt, welcher Nutzer Bestände, Sets und Ausleihen geändert hat
 - Ausleihe und Rückgabe laufen in Transaktionen
 - Bestände können bei Ausleihe nicht unter 0 fallen
 - Löschen von Einträgen mit Ausleihhistorie wird blockiert

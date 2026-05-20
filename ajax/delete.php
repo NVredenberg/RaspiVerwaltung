@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 require_login(true);
 require_valid_csrf(true);
@@ -14,7 +15,9 @@ try {
         json_response(['success' => false, 'error' => 'Dieser Eintrag ist bereits in Ausleihen enthalten und wird nicht gelöscht.'], 409);
     }
 
+    $item = $db->fetch('SELECT Bauteilname FROM bauteil_tabelle WHERE ID = ?', [$id]);
     $affected = $db->delete('bauteil_tabelle', 'ID = ?', [$id]);
+    audit_log($db, 'delete', 'inventory', $id, 'Inventar gelöscht', ['name' => $item['Bauteilname'] ?? '']);
     json_response(['success' => true, 'affected' => $affected]);
 } catch (InvalidArgumentException $e) {
     json_response(['success' => false, 'error' => $e->getMessage()], 422);
