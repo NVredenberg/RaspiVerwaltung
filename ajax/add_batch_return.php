@@ -1,53 +1,55 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+
+require_login(true);
+require_valid_csrf(true);
 
 try {
     $db = Database::getInstance();
-
-    $return_ids = $_POST['return_ids'];
-    $Rueckgabedatum = date('Y-m-d');
-
-    $success = true;
-    $errors = [];
+    $returnIds = input_int_array($_POST, 'return_ids', 1);
+    $rueckgabedatum = date('Y-m-d');
     $processed = 0;
 
-    foreach ($return_ids as $loan_id) {
-        try {
-            $loan = $db->fetch(
-                "SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID = ? AND Rueckgabedatum IS NULL",
-                [$loan_id]
-            );
+    $db->beginTransaction();
 
-            if ($loan) {
-                $db->query(
-                    "UPDATE ausleihe_tabelle SET Rueckgabedatum = ? WHERE Ausleihe_ID = ?",
-                    [$Rueckgabedatum, $loan_id]
-                );
+    foreach ($returnIds as $loanId) {
+        $loan = $db->fetch(
+            'SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID = ? AND Rueckgabedatum IS NULL',
+            [$loanId]
+        );
 
-                $db->query(
-                    "UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?",
-                    [$loan['Bauteil_ID']]
-                );
-
-                $processed++;
-            } else {
-                $errors[] = "Ausleihe ID {$loan_id} nicht gefunden oder bereits zurückgegeben";
-            }
-        } catch (Exception $e) {
-            $errors[] = "Fehler bei Ausleihe ID {$loan_id}: " . $e->getMessage();
+        if (!$loan) {
+            throw new InvalidArgumentException('Eine ausgewählte Ausleihe wurde nicht gefunden oder ist bereits zurückgegeben.');
         }
+
+        $updated = $db->query(
+            'UPDATE ausleihe_tabelle SET Rueckgabedatum = ? WHERE Ausleihe_ID = ? AND Rueckgabedatum IS NULL',
+            [$rueckgabedatum, $loanId]
+        )->rowCount();
+
+        if ($updated !== 1) {
+            throw new InvalidArgumentException('Eine ausgewählte Ausleihe wurde bereits zurückgegeben.');
+        }
+
+        $db->query(
+            'UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?',
+            [$loan['Bauteil_ID']]
+        );
+        $processed++;
     }
 
-    echo json_encode([
-        'success' => true,
-        'message' => "{$processed} Rückgaben erfolgreich verarbeitet",
-        'errors' => $errors
-    ]);
-
+    $db->commit();
+    json_response(['success' => true, 'processed' => $processed]);
+} catch (InvalidArgumentException $e) {
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    json_response(['success' => false, 'error' => $e->getMessage()], 422);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
-} 
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    error_log($e->getMessage());
+    json_response(['success' => false, 'error' => 'Massenrückgabe konnte nicht gespeichert werden.'], 500);
+}

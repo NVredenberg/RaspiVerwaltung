@@ -1,37 +1,51 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+
+require_login(true);
+require_valid_csrf(true);
 
 try {
     $db = Database::getInstance();
+    $ausleiheId = input_int($_POST, 'Ausleihe_ID', 1);
+    $rueckgabedatum = date('Y-m-d');
 
-    // Daten aus dem Formular abrufen
-    $Ausleihe_ID = $_POST['Ausleihe_ID'];
-    $Rueckgabedatum = date('Y-m-d');
+    $db->beginTransaction();
 
-    // Ausleihvorgang aktualisieren
-    $db->update(
-        'ausleihe_tabelle',
-        ['Rueckgabedatum' => $Rueckgabedatum],
-        'Ausleihe_ID = ?',
-        [$Ausleihe_ID]
-    );
-
-    // Bauteil-ID abrufen
     $ausleihe = $db->fetch(
-        "SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID = ?",
-        [$Ausleihe_ID]
+        'SELECT Bauteil_ID FROM ausleihe_tabelle WHERE Ausleihe_ID = ? AND Rueckgabedatum IS NULL',
+        [$ausleiheId]
     );
 
-    if ($ausleihe) {
-        // IST-Menge des Bauteils erhöhen
-        $db->query(
-            "UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?",
-            [$ausleihe['Bauteil_ID']]
-        );
+    if (!$ausleihe) {
+        throw new InvalidArgumentException('Ausleihe wurde nicht gefunden oder ist bereits zurückgegeben.');
     }
 
-    echo json_encode(['success' => true]);
+    $updated = $db->query(
+        'UPDATE ausleihe_tabelle SET Rueckgabedatum = ? WHERE Ausleihe_ID = ? AND Rueckgabedatum IS NULL',
+        [$rueckgabedatum, $ausleiheId]
+    )->rowCount();
+
+    if ($updated !== 1) {
+        throw new InvalidArgumentException('Ausleihe wurde bereits zurückgegeben.');
+    }
+
+    $db->query(
+        'UPDATE bauteil_tabelle SET IST_Menge = IST_Menge + 1 WHERE ID = ?',
+        [$ausleihe['Bauteil_ID']]
+    );
+
+    $db->commit();
+    json_response(['success' => true]);
+} catch (InvalidArgumentException $e) {
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    json_response(['success' => false, 'error' => $e->getMessage()], 422);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    error_log($e->getMessage());
+    json_response(['success' => false, 'error' => 'Rückgabe konnte nicht gespeichert werden.'], 500);
 }

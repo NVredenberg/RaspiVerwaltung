@@ -1,60 +1,52 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+
+require_login(true);
+require_valid_csrf(true);
 
 try {
     $db = Database::getInstance();
-
-    $Koffer_IDs = $_POST['Koffer_ID'];
-    $Bauteil_IDs = $_POST['Bauteil_ID'];
-    $Ausleihdatum = date('Y-m-d');
-    $Nutzer = 'Oberstufe';  // Default user
-
-    $success = true;
-    $errors = [];
+    $kofferIds = input_int_array($_POST, 'Koffer_ID', 1);
+    $bauteilIds = input_int_array($_POST, 'Bauteil_ID', 1);
+    $ausleihdatum = date('Y-m-d');
+    $nutzer = current_username();
     $processed = 0;
 
-    foreach ($Koffer_IDs as $Koffer_ID) {
-        foreach ($Bauteil_IDs as $Bauteil_ID) {
-            try {
-                $available = $db->fetch(
-                    "SELECT IST_Menge FROM bauteil_tabelle WHERE ID = ?",
-                    [$Bauteil_ID]
-                );
+    $db->beginTransaction();
 
-                if ($available && $available['IST_Menge'] > 0) {
-                    $ausleiheData = [
-                        'Koffer_ID' => $Koffer_ID,
-                        'Bauteil_ID' => $Bauteil_ID,
-                        'Nutzer' => $Nutzer,
-                        'Ausleihdatum' => $Ausleihdatum
-                    ];
-                    
-                    $db->insert('ausleihe_tabelle', $ausleiheData);
-                    $db->query(
-                        "UPDATE bauteil_tabelle SET IST_Menge = IST_Menge - 1 WHERE ID = ?",
-                        [$Bauteil_ID]
-                    );
+    foreach ($kofferIds as $kofferId) {
+        foreach ($bauteilIds as $bauteilId) {
+            $updated = $db->query(
+                'UPDATE bauteil_tabelle SET IST_Menge = IST_Menge - 1 WHERE ID = ? AND IST_Menge > 0',
+                [$bauteilId]
+            )->rowCount();
 
-                    $processed++;
-                } else {
-                    $errors[] = "Bauteil ID {$Bauteil_ID} ist nicht mehr verfügbar";
-                }
-            } catch (Exception $e) {
-                $errors[] = "Fehler bei Koffer {$Koffer_ID} und Bauteil {$Bauteil_ID}: " . $e->getMessage();
+            if ($updated !== 1) {
+                throw new InvalidArgumentException('Ein gewählter Inventareintrag ist nicht mehr verfügbar.');
             }
+
+            $db->insert('ausleihe_tabelle', [
+                'Koffer_ID' => $kofferId,
+                'Bauteil_ID' => $bauteilId,
+                'Nutzer' => $nutzer,
+                'Ausleihdatum' => $ausleihdatum,
+            ]);
+            $processed++;
         }
     }
 
-    echo json_encode([
-        'success' => true,
-        'message' => "{$processed} Ausleihen erfolgreich verarbeitet",
-        'errors' => $errors
-    ]);
-
+    $db->commit();
+    json_response(['success' => true, 'processed' => $processed]);
+} catch (InvalidArgumentException $e) {
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    json_response(['success' => false, 'error' => $e->getMessage()], 422);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
-} 
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    error_log($e->getMessage());
+    json_response(['success' => false, 'error' => 'Massenausleihe konnte nicht gespeichert werden.'], 500);
+}

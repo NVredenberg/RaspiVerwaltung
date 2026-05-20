@@ -1,0 +1,8 @@
+.git
+.env
+db_data
+node_modules
+vendor
+*.log
+*.sql.gz
+*.zip

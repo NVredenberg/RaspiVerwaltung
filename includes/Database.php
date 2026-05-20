@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 require_once __DIR__ . '/../config/Config.php';
 
@@ -23,7 +24,8 @@ class Database {
                 $options
             );
         } catch (PDOException $e) {
-            throw new Exception("Connection failed: " . $e->getMessage());
+            error_log("Database connection failed: " . $e->getMessage());
+            throw new Exception("Datenbankverbindung fehlgeschlagen.");
         }
     }
 
@@ -44,7 +46,8 @@ class Database {
             $stmt->execute($params);
             return $stmt;
         } catch (PDOException $e) {
-            throw new Exception("Query failed: " . $e->getMessage());
+            error_log("Database query failed: " . $e->getMessage());
+            throw new Exception("Datenbankabfrage fehlgeschlagen.");
         }
     }
 
@@ -57,10 +60,12 @@ class Database {
     }
 
     public function insert($table, $data) {
+        $table = $this->identifier($table);
         $fields = array_keys($data);
+        $quotedFields = array_map([$this, 'identifier'], $fields);
         $placeholders = array_fill(0, count($fields), '?');
         
-        $sql = "INSERT INTO {$table} (" . implode(', ', $fields) . ") 
+        $sql = "INSERT INTO {$table} (" . implode(', ', $quotedFields) . ")
                 VALUES (" . implode(', ', $placeholders) . ")";
         
         $this->query($sql, array_values($data));
@@ -68,8 +73,9 @@ class Database {
     }
 
     public function update($table, $data, $where, $whereParams = []) {
+        $table = $this->identifier($table);
         $fields = array_map(function($field) {
-            return "{$field} = ?";
+            return $this->identifier($field) . " = ?";
         }, array_keys($data));
         
         $sql = "UPDATE {$table} SET " . implode(', ', $fields) . " WHERE {$where}";
@@ -79,7 +85,31 @@ class Database {
     }
 
     public function delete($table, $where, $params = []) {
+        $table = $this->identifier($table);
         $sql = "DELETE FROM {$table} WHERE {$where}";
         return $this->query($sql, $params)->rowCount();
+    }
+
+    public function beginTransaction(): bool {
+        return $this->pdo->beginTransaction();
+    }
+
+    public function commit(): bool {
+        return $this->pdo->commit();
+    }
+
+    public function rollBack(): bool {
+        return $this->pdo->rollBack();
+    }
+
+    public function inTransaction(): bool {
+        return $this->pdo->inTransaction();
+    }
+
+    private function identifier(string $identifier): string {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $identifier)) {
+            throw new InvalidArgumentException('Ungültiger Datenbankbezeichner.');
+        }
+        return "`{$identifier}`";
     }
 }

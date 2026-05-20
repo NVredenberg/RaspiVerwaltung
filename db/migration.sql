@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS raspi;
+CREATE DATABASE IF NOT EXISTS raspi CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE raspi;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -11,18 +11,26 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS bauteil_tabelle (
     ID INT AUTO_INCREMENT PRIMARY KEY,
     Bauteilname VARCHAR(100) NOT NULL,
-    SOLL_Menge INT NOT NULL,
-    IST_Menge INT NOT NULL,
+    Kategorie VARCHAR(50) NOT NULL DEFAULT 'Raspberry',
+    SOLL_Menge INT NOT NULL DEFAULT 0,
+    IST_Menge INT NOT NULL DEFAULT 0,
     Lagerort VARCHAR(100) NOT NULL,
     Beschreibung TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CHECK (SOLL_Menge >= 0),
+    CHECK (IST_Menge >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS koffer_tabelle (
     Koffer_ID INT AUTO_INCREMENT PRIMARY KEY,
-    Besitzer_Oberstufe VARCHAR(100) NOT NULL,
-    Besitzer_Mittelstufe VARCHAR(100) NOT NULL,
+    Bezeichnung VARCHAR(120) NOT NULL,
+    Kategorie VARCHAR(50) NOT NULL DEFAULT 'Raspberry',
+    Zielgruppe VARCHAR(120) NOT NULL DEFAULT 'Allgemein',
+    Ansprechpartner VARCHAR(120),
+    Beschreibung TEXT,
+    Besitzer_Oberstufe VARCHAR(100),
+    Besitzer_Mittelstufe VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -41,5 +49,7 @@ CREATE TABLE IF NOT EXISTS ausleihe_tabelle (
 );
 
 CREATE INDEX idx_bauteil_name ON bauteil_tabelle(Bauteilname);
-CREATE INDEX idx_koffer_besitzer ON koffer_tabelle(Besitzer_Oberstufe, Besitzer_Mittelstufe);
+CREATE INDEX idx_bauteil_kategorie ON bauteil_tabelle(Kategorie);
+CREATE INDEX idx_koffer_kategorie ON koffer_tabelle(Kategorie);
+CREATE INDEX idx_koffer_zielgruppe ON koffer_tabelle(Zielgruppe);
 CREATE INDEX idx_ausleihe_dates ON ausleihe_tabelle(Ausleihdatum, Rueckgabedatum);

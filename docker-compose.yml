@@ -1,0 +1,65 @@
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "${APP_BIND_IP:-172.16.76.162}:${APP_PORT:-8080}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/run/apache2
+      - /var/lock/apache2
+      - /var/lib/php/sessions
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: "1.0"
+    networks:
+      - frontend
+      - backend
+
+  db:
+    image: mariadb:11
+    env_file:
+      - .env
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-raspi}
+      MARIADB_USER: ${DB_USER:-raspiVer}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/migration.sql:/docker-entrypoint-initdb.d/001_migration.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u\"$${MARIADB_USER}\" -p\"$${MARIADB_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: "1.0"
+    networks:
+      - backend
+
+volumes:
+  db_data:
+
+networks:
+  frontend:
+  backend:
+    internal: true

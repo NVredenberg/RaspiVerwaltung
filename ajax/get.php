@@ -1,22 +1,27 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/Database.php';
+
+require_login(true);
 
 try {
     $db = Database::getInstance();
+    $id = input_int($_GET, 'id', 1);
 
-    // ID des Bauteils abrufen
-    $id = $_GET['id'];
+    $bauteil = $db->fetch('
+        SELECT ID, Bauteilname, Kategorie, SOLL_Menge, IST_Menge, Lagerort, Beschreibung
+        FROM bauteil_tabelle
+        WHERE ID = ?
+    ', [$id]);
 
-    // Bauteil abrufen
-    $bauteil = $db->fetch("SELECT * FROM bauteil_tabelle WHERE ID = ?", [$id]);
-    
-    if ($bauteil) {
-        echo json_encode($bauteil);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'Bauteil nicht gefunden']);
+    if (!$bauteil) {
+        json_response(['success' => false, 'error' => 'Inventareintrag nicht gefunden.'], 404);
     }
+
+    json_response($bauteil);
+} catch (InvalidArgumentException $e) {
+    json_response(['success' => false, 'error' => $e->getMessage()], 422);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    error_log($e->getMessage());
+    json_response(['success' => false, 'error' => 'Inventareintrag konnte nicht geladen werden.'], 500);
 }

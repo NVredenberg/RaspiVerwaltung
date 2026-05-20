@@ -1,3 +1,3 @@
 <?php
-$db = Database::getInstance();
-
+header('Location: index.php');
+exit;
