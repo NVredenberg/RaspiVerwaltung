@@ -237,6 +237,31 @@ Erwartung:
 - Es wird kein Datenbank-Port nach außen veröffentlicht.
 - Login, Registrierung und Admin-Freigabe funktionieren.
 
+## Troubleshooting: Login nicht möglich
+
+Wenn die Login-Seite `Login ist gerade nicht möglich. Bitte später erneut versuchen.` anzeigt, ist das ein serverseitiger Datenbankfehler. Die konkrete Ursache steht im App-Log:
+
+```bash
+docker compose logs --tail=100 app
+docker compose logs --tail=100 db
+```
+
+Typische Ursachen sind falsche Datenbank-Zugangsdaten in `.env`, ein nicht passender `DB_NAME` oder ein bestehendes MariaDB-Volume, in dem die aktuellen Tabellen noch fehlen. Tabellen prüfen:
+
+```bash
+docker compose exec -T db sh -c 'mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SHOW TABLES;"'
+docker compose exec -T db sh -c 'mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SELECT COUNT(*) AS users FROM users;"'
+```
+
+Wenn `users` oder andere aktuelle Tabellen/Spalten fehlen, die Upgrade-Datei ausführen:
+
+```bash
+docker compose exec -T db sh -c 'mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < db/upgrade_2026_05_inventory.sql
+docker compose restart app
+```
+
+Die Browser-Konsole kann zusätzlich blockierte Bootstrap-`.map`-Dateien melden. Das betrifft nur Source-Maps für die Entwicklerwerkzeuge und ist nicht die Ursache der Login-Meldung.
+
 ## Pi-hole schützen
 
 Nicht ändern:

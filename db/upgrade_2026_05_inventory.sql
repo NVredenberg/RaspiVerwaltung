@@ -1,5 +1,18 @@
 USE raspi;
 
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+    status ENUM('pending', 'active', 'rejected') NOT NULL DEFAULT 'pending',
+    approved_by INT NULL,
+    approved_at TIMESTAMP NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 ALTER TABLE bauteil_tabelle
     ADD COLUMN IF NOT EXISTS Kategorie VARCHAR(50) NOT NULL DEFAULT 'Raspberry' AFTER Bauteilname;
 
@@ -30,7 +43,8 @@ ALTER TABLE users
     ADD COLUMN IF NOT EXISTS status ENUM('pending', 'active', 'rejected') NOT NULL DEFAULT 'active' AFTER role,
     ADD COLUMN IF NOT EXISTS approved_by INT NULL AFTER status,
     ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL AFTER approved_by,
-    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER approved_at;
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER approved_at,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER updated_at;
 
 UPDATE users
 SET status = 'active'
