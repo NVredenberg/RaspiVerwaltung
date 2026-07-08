@@ -4,7 +4,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${APP_BIND_IP:-172.16.76.162}:${APP_PORT:-8080}:80"
+      - "${APP_BIND_IP:-172.16.76.162}:${APP_PORT:-4444}:80"
     depends_on:
       db:
         condition: service_healthy

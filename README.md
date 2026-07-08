@@ -6,7 +6,7 @@ Interne Inventarverwaltung für Raspberrys, Arduino-Koffer, PC-Teile, Zubehör, 
 
 Die Anwendung ist für Docker vorbereitet und belegt standardmäßig **nicht** Port 80. Damit bleibt Pi-hole unter `172.16.76.162` weiterhin erreichbar.
 
-- App: `http://172.16.76.162:8080`
+- App: `http://172.16.76.162:4444`
 - Pi-hole: bleibt auf den bestehenden Pi-hole-Ports erreichbar
 - Datenbank: nur im internen Docker-Netz, kein veröffentlichter Port
 
@@ -24,7 +24,7 @@ docker compose up -d --build
 3. App öffnen:
 
 ```text
-http://172.16.76.162:8080
+http://172.16.76.162:4444
 ```
 
 Beim ersten Login gibt es noch keine Konten. Die Login-Maske legt dann automatisch das erste Admin-Konto an.
@@ -36,7 +36,7 @@ Weitere Nutzer verwenden `Registrieren` auf der Login-Seite. Diese Konten bleibe
 Die Anwendung liest die Datenbankkonfiguration aus Umgebungsvariablen:
 
 - `APP_BIND_IP=172.16.76.162`
-- `APP_PORT=8080`
+- `APP_PORT=4444`
 - `DB_HOST=db`
 - `DB_PORT=3306`
 - `DB_NAME=raspi`

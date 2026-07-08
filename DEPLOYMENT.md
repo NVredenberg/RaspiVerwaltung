@@ -5,7 +5,7 @@ Diese Anleitung beschreibt das Deployment der Raspi-Verwaltung auf den Pi-hole-H
 Ziel:
 
 - Pi-hole bleibt unter `172.16.76.162` erreichbar.
-- Die Inventarverwaltung läuft unter `http://172.16.76.162:8080`.
+- Die Inventarverwaltung läuft unter `http://172.16.76.162:4444`.
 - MariaDB bleibt nur im internen Docker-Netz erreichbar.
 - Versionierung und Updates laufen über Git.
 - `.env` bleibt ausschließlich auf dem Zielsystem.
@@ -113,7 +113,7 @@ Wichtige Werte:
 
 ```env
 APP_BIND_IP=172.16.76.162
-APP_PORT=8080
+APP_PORT=4444
 DB_HOST=db
 DB_PORT=3306
 DB_NAME=raspi
@@ -123,6 +123,34 @@ DB_ROOT_PASSWORD=<sicheres-root-passwort>
 ```
 
 Wichtig: `.env` wird nicht per Git übertragen und darf nicht committed werden.
+
+## Vor dem ersten Start prüfen
+
+`APP_BIND_IP` muss eine IPv4-Adresse sein, die der Pi-hole-Host tatsächlich auf einem Netzwerkinterface besitzt. Docker kann nicht an eine Adresse binden, die auf dem Host nicht eingerichtet ist.
+
+Vor dem ersten Start auf dem Pi prüfen:
+
+```bash
+ip -4 addr show
+```
+
+Die in `.env` gesetzte Adresse muss in der Ausgabe als `inet ...` auftauchen, z. B. auf `eth0`. Wenn der neue Host stattdessen eine andere Adresse bekommen hat, gibt es zwei saubere Optionen:
+
+- `APP_BIND_IP` in `.env` auf die neue Host-Adresse anpassen, falls `172.16.76.162` auf dem neuen Gerät nicht mehr zutrifft.
+- Dem Host die gewünschte feste Adresse dauerhaft geben. Je nach Raspberry Pi OS Version läuft das über `/etc/dhcpcd.conf` oder über NetworkManager, z. B. mit `nmtui`, `nmcli` oder den Netzwerkeinstellungen.
+
+Für einen kurzfristigen Test kann die Adresse zusätzlich auf `eth0` gelegt werden:
+
+```bash
+sudo ip addr add 172.16.76.162/24 dev eth0
+```
+
+Das verschwindet nach einem Neustart wieder, wenn die Adresse nicht dauerhaft per `dhcpcd.conf` oder NetworkManager konfiguriert wurde. Den Netzpräfix, hier `/24`, bei Bedarf an das lokale Netzwerk anpassen.
+
+Troubleshooting:
+
+- `cannot assign requested address` bedeutet: Die in `APP_BIND_IP` gesetzte Adresse ist auf dem Host nicht vorhanden. Mit `ip -4 addr show` prüfen und entweder die IP am Host einrichten oder `APP_BIND_IP` korrigieren.
+- `address already in use` bedeutet: Die IP ist vorhanden, aber der Port ist bereits belegt. Dann prüfen, welcher Dienst den Port nutzt, z. B. mit `sudo ss -tulpn`.
 
 ## Erstes Deployment
 
@@ -137,7 +165,7 @@ docker compose ps
 Danach öffnen:
 
 ```text
-http://172.16.76.162:8080
+http://172.16.76.162:4444
 ```
 
 Beim ersten Login wird das initiale Admin-Konto angelegt. Danach registrieren sich weitere Nutzer selbst und werden im Admin-Panel freigegeben.
@@ -196,15 +224,15 @@ docker compose ps
 Auf dem Pi oder einem Rechner im Netzwerk:
 
 ```bash
-curl -I http://172.16.76.162:8080/login.php
-curl -I http://172.16.76.162/admin/
+curl -I http://172.16.76.162:4444/login.php
+curl -I http://172.16.76.162:4444/admin/
 docker compose logs --tail=100 app
 docker compose logs --tail=100 db
 ```
 
 Erwartung:
 
-- App antwortet auf Port `8080`.
+- App antwortet auf Port `4444`.
 - Pi-hole bleibt auf seinen bestehenden Ports erreichbar.
 - Es wird kein Datenbank-Port nach außen veröffentlicht.
 - Login, Registrierung und Admin-Freigabe funktionieren.
@@ -221,7 +249,7 @@ Die App nutzt bewusst:
 
 ```yaml
 ports:
-  - "${APP_BIND_IP:-172.16.76.162}:${APP_PORT:-8080}:80"
+  - "${APP_BIND_IP:-172.16.76.162}:${APP_PORT:-4444}:80"
 ```
 
 ## Rollback
@@ -245,7 +273,7 @@ Danach wieder prüfen:
 
 ```bash
 docker compose ps
-curl -I http://172.16.76.162:8080/login.php
+curl -I http://172.16.76.162:4444/login.php
 ```
 
 ## Regelmäßige Wartung
