@@ -162,11 +162,18 @@ function require_valid_csrf(bool $json = false): void
         return;
     }
 
+    error_log(sprintf(
+        'CSRF-Mismatch: session_token_present=%s, request_token_present=%s, session_id=%s',
+        $sessionToken !== '' ? 'yes' : 'no',
+        $requestToken !== '' ? 'yes' : 'no',
+        session_id()
+    ));
+
     if ($json) {
-        json_response(['success' => false, 'error' => 'Die Sicherheitsprüfung ist abgelaufen. Bitte Seite neu laden.'], 419);
+        json_response(['success' => false, 'error' => 'Die Sicherheitsprüfung ist abgelaufen. Bitte Seite neu laden.'], 403);
     }
 
-    http_response_code(419);
+    http_response_code(403);
     exit('Die Sicherheitsprüfung ist abgelaufen. Bitte Seite neu laden.');
 }
 
